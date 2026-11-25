@@ -1,0 +1,13 @@
+#!/bin/bash
+# 卸载前：默认保留监控数据（SQLite 库位于应用声明的 data-share 内），
+# 用户可在卸载后通过文件管理自行清理。本脚本只处理应用自建文件。
+
+DATA_DIR="${TRIM_DATA_SHARE_PATHS%%:*}"
+if [ -z "$DATA_DIR" ]; then
+  DATA_DIR="${TRIM_PKGVAR}/data"
+fi
+
+if [ -f "${DATA_DIR}/ipwatch.db" ]; then
+  echo "IPwatch uninstall_init: monitoring data kept at ${DATA_DIR}/ipwatch.db"
+fi
+exit 0

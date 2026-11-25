@@ -1,0 +1,3 @@
+#!/bin/bash
+# IPwatch - upgrade_init（暂无特殊逻辑，预留占位）
+exit 0

@@ -1,0 +1,13 @@
+{
+  "name": "ipwatch-server",
+  "version": "0.1.0",
+  "private": true,
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.15"
+  }
+}

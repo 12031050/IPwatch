@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPwatch</title>
+<link rel="stylesheet" href="style.css?v=083">
+</head>
+<body>
+<aside class="side">
+  <div class="logo"><div class="brand"><b>IPwatch</b><small>IP哨兵</small></div></div>
+  <nav class="nav" id="nav">
+    <a class="on" data-view="overview" href="#">◧ 监控总览</a>
+    <a data-view="hosts" href="#">◎ 设备管理</a>
+    <a data-view="records" href="#">⚑ 报警记录 <span class="badge" id="navAlertBadge" style="display:none">0</span></a>
+    <a data-view="notify" href="#">✉ 通知渠道</a>
+    <a data-view="settings" href="#">⚙ 系统设置</a>
+  </nav>
+  <div class="side-foot">
+    <div class="ver">v0.8.3 · 梦非常浪漫</div>
+  </div>
+</aside>
+
+<main class="main">
+  <!-- ===== 监控总览 ===== -->
+  <section id="view-overview">
+    <div class="top">
+      <h1>监控总览</h1>
+      <div class="act">
+        <button class="btn ghost" id="btnProbeAll">⟳ 立即探测全部</button>
+        <button class="btn" id="btnQuickAdd">＋ 添加 IP</button>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="card"><div class="k">监控主机</div><div class="v" id="stTotal">- <small>台</small></div></div>
+      <div class="card up"><div class="k">当前在线</div><div class="v" id="stUp">- <small>台</small></div></div>
+      <div class="card down"><div class="k">当前掉线</div><div class="v" id="stDown">- <small>台</small></div></div>
+      <div class="card alert"><div class="k">今日报警</div><div class="v" id="stToday">- <small>条</small></div></div>
+    </div>
+    <div class="ov-grid">
+      <div class="tbl-wrap">
+        <div class="tbl-head">掉线主机 <span class="tag" id="autoRefreshTag">每 10 秒自动刷新</span></div>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>状态</th><th>名称</th><th>IP / 端口</th><th>掉线于</th></tr></thead>
+            <tbody id="downTbody"></tbody>
+          </table>
+          <div class="empty" id="downEmpty" style="display:none">✓ 全部主机在线正常</div>
+        </div>
+        <div id="downPager"></div>
+      </div>
+      <div class="feed">
+        <h3>实时事件流 <span class="tag">仅掉线事件 · 含通知结果</span></h3>
+        <div class="feed-scroll" id="feedList"></div>
+        <div id="feedPager"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 主机管理 ===== -->
+  <section id="view-hosts" style="display:none">
+    <div class="top">
+      <h1>设备管理</h1>
+      <div class="act">
+        <button class="btn ghost" id="btnProbeAll2">⟳ 立即探测全部</button>
+        <button class="btn" id="btnAddHost">＋ 添加 IP</button>
+      </div>
+    </div>
+    <div class="tbl-wrap full">
+      <div class="tbl-head">监控设备 <span class="tag">Ping + 端口探测 · 全部设备在此维护</span></div>
+      <div class="tbl-scroll">
+        <table class="host-table">
+          <colgroup>
+            <col style="width:180px"><col style="width:150px"><col style="width:150px"><col style="width:72px">
+            <col style="width:78px"><col style="width:110px"><col style="width:96px"><col style="width:82px"><col style="width:86px">
+            <col style="width:200px">
+          </colgroup>
+          <thead><tr><th>状态 / 最近变化</th><th>名称</th><th>IP / 端口</th><th>延迟</th><th>级别</th><th>分组</th><th>通知</th><th>探测间隔</th><th>掉线判定</th><th style="text-align:right">操作</th></tr></thead>
+          <tbody id="hostTbody"></tbody>
+        </table>
+        <div class="empty" id="hostEmpty" style="display:none">还没有监控目标，点右上角「＋ 添加 IP」开始</div>
+      </div>
+      <div id="hostPager"></div>
+    </div>
+  </section>
+
+  <!-- ===== 报警记录 ===== -->
+  <section id="view-records" style="display:none">
+    <div class="top">
+      <h1>报警记录</h1>
+      <div class="act">
+        <select class="btn ghost sel" id="recFilter">
+          <option value="">全部事件</option>
+          <option value="down">仅掉线</option>
+          <option value="up">仅恢复</option>
+        </select>
+        <button class="btn ghost" id="btnResendAll" title="对所有仍在掉线、且邮件/微信尚未成功送达的设备重新发送提醒">↻ 补发离线</button>
+        <button class="btn ghost" id="btnExportCsv">导出 CSV</button>
+        <button class="btn danger" id="btnClearRecords">清空记录</button>
+      </div>
+    </div>
+    <div class="tbl-wrap full">
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>事件</th><th>级别</th><th>主机</th><th>IP / 端口</th><th>开始时间</th><th>持续</th><th>持续时间</th><th>邮件</th><th>微信</th><th>处理</th><th style="text-align:right">操作</th></tr></thead>
+          <tbody id="recTbody"></tbody>
+        </table>
+        <div class="empty" id="recEmpty" style="display:none">暂无报警记录</div>
+      </div>
+      <div id="recPager"></div>
+    </div>
+  </section>
+
+  <!-- ===== 通知渠道 ===== -->
+  <section id="view-notify" style="display:none">
+    <div class="top"><h1>通知渠道</h1></div>
+    <div class="notify-banner" id="notifyBanner"></div>
+    <div class="settings-grid">
+      <div class="panel">
+        <h3>✉ 邮件通知（SMTP）</h3>
+        <div class="switch-row">
+          <label class="switch"><input type="checkbox" id="setMailEnabled"><span class="slider"></span></label>
+          <span>启用邮件通知</span>
+        </div>
+        <label>SMTP 服务器<input type="text" id="setSmtpHost" placeholder="smtp.qq.com"></label>
+        <div class="row2">
+          <label>端口<input type="number" id="setSmtpPort" placeholder="465"></label>
+          <label>SSL/STARTTLS
+            <select id="setSmtpSecure"><option value="1">SSL（465）</option><option value="0">STARTTLS（587）</option></select>
+          </label>
+        </div>
+        <label>SMTP 账号<input type="text" id="setSmtpUser" placeholder="xxx@qq.com"></label>
+        <label>SMTP 授权码<input type="password" id="setSmtpPass" placeholder="已设置时留空表示不修改"></label>
+        <label>发件人<input type="text" id="setMailFrom" placeholder="与 SMTP 账号一致即可"></label>
+        <label>收件人<input type="text" id="setMailTo" placeholder="xxx@qq.com，多个用逗号分隔"></label>
+        <div class="panel-foot"><button class="btn" id="btnSaveMail">保存邮件配置</button><button class="btn ghost" id="btnTestMail">发送测试邮件</button></div>
+        <div class="test-result" id="testMailResult"></div>
+      </div>
+      <div class="panel">
+        <h3>💬 Webhook 通知（微信 / 钉钉 / 飞书 / 自定义）</h3>
+        <div class="switch-row">
+          <label class="switch"><input type="checkbox" id="setWxEnabled"><span class="slider"></span></label>
+          <span>启用 Webhook 推送</span>
+        </div>
+        <label>推送方式
+          <select id="setWxType">
+            <option value="serverchan">Server酱 Turbo（微信服务号）</option>
+            <option value="wecom">企业微信群机器人</option>
+            <option value="dingtalk">钉钉群机器人</option>
+            <option value="feishu">飞书群机器人</option>
+            <option value="custom">自定义 Webhook（通用 JSON）</option>
+          </select>
+        </label>
+        <label>Key / Webhook URL<input type="text" id="setWxKey" placeholder="SendKey 或完整 Webhook URL"></label>
+        <div class="hint" id="wxHint">Server酱：sct.ftqq.com 申请 SendKey；企业微信/钉钉/飞书：群设置 → 群机器人 → 复制 Webhook 地址；钉钉可加 &amp;secret=xxx 启用加签；自定义：填完整 http(s) URL，接收 {title,text,content} JSON。</div>
+        <div class="panel-foot"><button class="btn" id="btnSaveWx">保存推送配置</button><button class="btn ghost" id="btnTestWx">发送测试推送</button></div>
+        <div class="test-result" id="testWxResult"></div>
+      </div>
+      <div class="panel wide">
+        <h3>⚡ 告警策略</h3>
+        <div class="hint">控制重复提醒与恢复通知。设备级还可单独设告警级别、恢复通知、维护窗口（在「设备管理」里编辑设备）。</div>
+        <div class="row2">
+          <label>持续掉线重复提醒（小时，0=关闭）
+            <input type="number" id="setRepeatHours" min="0" max="720" placeholder="0">
+            <span class="hint" style="margin-top:4px">设备一直掉线时，每隔 N 小时再发一次提醒，直到恢复或进维护窗口。</span>
+          </label>
+          <label>设备恢复时发通知
+            <select id="setNotifyRecovery"><option value="1">发送恢复通知</option><option value="0">不发送恢复通知</option></select>
+          </label>
+        </div>
+        <div class="panel-foot"><button class="btn" id="btnSavePolicy">保存告警策略</button></div>
+        <div class="test-result" id="policyResult"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 系统设置 ===== -->
+  <section id="view-settings" style="display:none">
+    <div class="top"><h1>系统设置</h1></div>
+    <div class="settings-grid">
+      <div class="panel wide">
+        <h3>👤 账户管理（申请 / 添加用户 / 访问密码）</h3>
+        <div class="hint">账户用户用「用户名 + 密码」登录；访问密码是全局口令，输密码（不填用户名）也能解锁。两类凭证任一通过即可进入。</div>
+        <div class="acct-grid">
+          <div>
+            <div class="acct-sub">添加用户</div>
+            <div class="row2">
+              <label>用户名<input type="text" id="newUserName" placeholder="如：family / admin"></label>
+              <label>密码<input type="password" id="newUserPass" placeholder="至少 4 位"></label>
+            </div>
+            <div class="panel-foot"><button class="btn" id="btnAddUser">＋ 添加用户</button></div>
+          </div>
+          <div>
+            <div class="acct-sub">访问密码（全局口令）</div>
+            <label>新密码<input type="password" id="setAccessPwd" placeholder="已设置时留空表示不修改"></label>
+            <label>清除密码<input type="text" id="setAccessClear" placeholder="输入 CLR 并保存 = 清除密码"></label>
+            <div class="panel-foot"><button class="btn" id="btnSaveAccess">保存密码设置</button></div>
+          </div>
+          <div>
+            <div class="acct-sub">已有账户</div>
+            <table class="acct-tbl"><tbody id="userTbody"></tbody></table>
+            <div class="empty slim" id="userEmpty" style="display:none">暂无用户账户，仅访问密码保护</div>
+            <div class="test-result" id="accessResult"></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>⏱ 探测参数</h3>
+        <label>探测间隔（秒，10-3600）<input type="number" id="setInterval" min="10" max="3600"></label>
+        <label>连续失败次数判定掉线（1-10）<input type="number" id="setRetries" min="1" max="10"></label>
+        <label>报警记录保留天数<input type="number" id="setKeepDays" min="1" max="3650"></label>
+        <div class="panel-foot"><button class="btn" id="btnSaveProbe">保存探测参数</button></div>
+      </div>
+      <div class="panel">
+        <h3>🔁 系统备份 / 还原</h3>
+        <div class="hint">备份包含监控主机、报警记录、通知配置和账户（密码以加密形式保存）。还原会覆盖当前全部数据。</div>
+        <div class="panel-foot">
+          <button class="btn" id="btnBackup">⬇ 备份下载</button>
+          <button class="btn ghost" id="btnRestorePick">⬆ 从文件还原</button>
+          <input type="file" id="restoreFile" accept=".json" style="display:none">
+        </div>
+        <div class="test-result" id="backupResult"></div>
+      </div>
+      <div class="panel">
+        <h3>ℹ 关于</h3>
+        <div class="hint">IPwatch v0.8.3<br>轻量主机在线监测 · TCP 探测 · 邮件/微信报警<br>开发者：梦非常浪漫<br>数据存储：应用数据目录 SQLite，按保留天数自动清理</div>
+        <div class="hint" id="runtimeInfo"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ===== 添加/编辑主机弹窗 ===== -->
+<div class="modal-mask" id="hostModal" style="display:none">
+  <div class="modal">
+    <span class="modal-close" id="mClose" title="关闭">×</span>
+    <h3 id="hostModalTitle">添加 IP</h3>
+    <label>名称<input type="text" id="mName" placeholder="如：主路由 / 摄像头-车库"></label>
+    <label>IP 或域名<input type="text" id="mHost" placeholder="192.168.1.1 或 example.com"></label>
+    <div class="row2">
+      <label>TCP 端口<input type="number" id="mPort" value="80" min="1" max="65535"></label>
+      <label>探测间隔（秒）<input type="number" id="mInterval" value="30" min="10" max="3600"></label>
+    </div>
+    <label>连续失败几次判定掉线<input type="number" id="mRetries" value="3" min="1" max="10"></label>
+    <div class="row2">
+      <label>分组<input type="text" id="mGroup" placeholder="如：网关 / iot / 办公"></label>
+      <label>掉线通知方式
+        <select id="mNotify">
+          <option value="default">跟随全局设置</option>
+          <option value="mail">仅邮件</option>
+          <option value="wx">仅 Webhook 推送</option>
+          <option value="both">邮件 + 推送</option>
+          <option value="none">不通知</option>
+        </select>
+      </label>
+    </div>
+    <div class="row2">
+      <label>告警级别
+        <select id="mSeverity">
+          <option value="info">提示（低）</option>
+          <option value="warning">警告（中）</option>
+          <option value="critical">严重（高）</option>
+        </select>
+      </label>
+      <label>恢复时通知
+        <select id="mNotifyRecovery">
+          <option value="-1">跟随全局</option>
+          <option value="1">发送</option>
+          <option value="0">不发送</option>
+        </select>
+      </label>
+    </div>
+    <label class="maint-row"><input type="checkbox" id="mMaintEnabled" style="width:auto;margin:0 8px 0 0"> 维护窗口（此时间段内掉线不告警，仍照常监控记录）</label>
+    <div class="row2">
+      <label>开始时间<input type="time" id="mMaintStart" placeholder="23:00"></label>
+      <label>结束时间<input type="time" id="mMaintEnd" placeholder="06:00"></label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="mCancel">取消</button>
+      <button class="btn" id="mSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 通用确认弹窗 ===== -->
+<div class="modal-mask" id="confirmModal" style="display:none">
+  <div class="modal" style="width:340px">
+    <h3 id="confirmTitle">确认操作</h3>
+    <div class="hint" id="confirmText"></div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="confirmCancel">取消</button>
+      <button class="btn danger" id="confirmOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 报警确认 / 备注弹窗 ===== -->
+<div class="modal-mask" id="ackModal" style="display:none">
+  <div class="modal">
+    <span class="modal-close" id="ackClose" title="关闭">×</span>
+    <h3 id="ackTitle">处理报警</h3>
+    <div class="hint" id="ackMeta"></div>
+    <label class="switch-row" style="margin-bottom:12px">
+      <label class="switch"><input type="checkbox" id="ackDone"><span class="slider"></span></label>
+      <span id="ackDoneLabel">标记为已处理</span>
+    </label>
+    <label>处理备注<textarea id="ackNote" rows="4" placeholder="如：已重启设备恢复 / 计划内维护 / 已联系运营商"></textarea></label>
+    <div class="modal-foot">
+      <button class="btn ghost" id="ackCancel">取消</button>
+      <button class="btn" id="ackSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 延迟 / 丢包曲线弹窗 ===== -->
+<div class="modal-mask" id="chartModal" style="display:none">
+  <div class="modal" style="width:720px;max-width:95vw">
+    <span class="modal-close" id="chartClose" title="关闭">×</span>
+    <h3 id="chartTitle">延迟 / 丢包趋势</h3>
+    <div class="chart-stats" id="chartStats"></div>
+    <div class="chart-wrap"><svg id="chartSvg" viewBox="0 0 680 260" preserveAspectRatio="none"></svg></div>
+    <div class="row2" style="margin-top:12px">
+      <label>时间范围
+        <select id="chartHours"><option value="6">最近 6 小时</option><option value="24" selected>最近 24 小时</option><option value="72">最近 3 天</option><option value="168">最近 7 天</option></select>
+      </label>
+      <label>&nbsp;<button class="btn ghost" id="chartRefresh" style="margin-top:6px">刷新曲线</button></label>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 访问密码锁 ===== -->
+<div class="modal-mask" id="lockModal" style="display:none">
+  <div class="modal" style="width:340px">
+    <h3>🔒 IPwatch 已锁定</h3>
+    <label>用户名<input type="text" id="lockUser" placeholder="账户用户填写；仅用访问密码可留空"></label>
+    <label>密码 / 访问密码<input type="password" id="lockPwd"></label>
+    <div class="modal-foot">
+      <button class="btn" id="lockGo" style="width:100%">解锁</button>
+    </div>
+    <div class="test-result" id="lockResult"></div>
+  </div>
+</div>
+
+<!-- ===== 首次使用：设置访问密码 ===== -->
+<div class="modal-mask" id="setupModal" style="display:none">
+  <div class="modal" style="width:360px">
+    <h3>🔐 首次使用，请设置访问密码</h3>
+    <div class="hint">端口模式下页面在局域网内直达，必须先设一个访问密码才能进入。以后打开页面都需输入此密码（也可在系统设置里改）。</div>
+    <label>设置密码（至少 4 位）<input type="password" id="setupPwd" placeholder="输入访问密码"></label>
+    <label>再输入一次<input type="password" id="setupPwd2" placeholder="确认密码"></label>
+    <div class="modal-foot"><button class="btn" id="setupGo" style="width:100%">设置密码并进入</button></div>
+    <div class="test-result" id="setupResult"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" style="display:none"></div>
+<script src="app.js?v=083"></script>
+</body>
+</html>

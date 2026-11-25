@@ -1,0 +1,13 @@
+{
+  ".url": {
+    "ipwatch.main": {
+      "title": "IPwatch",
+      "icon": "images/icon_{0}.png",
+      "type": "iframe",
+      "protocol": "http",
+      "port": "5210",
+      "url": "/",
+      "allUsers": true
+    }
+  }
+}

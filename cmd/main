@@ -1,0 +1,101 @@
+#!/bin/bash
+# IPwatch 主生命周期脚本：处理 start / stop / status
+# 框架会周期性探测本应用进程状态，本脚本通过 PID 文件管理服务进程。
+
+LOG_FILE="${TRIM_PKGVAR}/app.log"
+PID_FILE="${TRIM_PKGVAR}/app.pid"
+
+# 依赖 nodejs_v22 运行时应用
+if [ -d "/var/apps/nodejs_v22/target/bin" ]; then
+  export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
+fi
+
+APP_DIR="${TRIM_APPDEST}/server"
+DATA_DIR="${TRIM_DATA_SHARE_PATHS%%:*}"
+if [ -z "$DATA_DIR" ]; then
+  DATA_DIR="${TRIM_PKGVAR}/data"
+fi
+GATEWAY_PREFIX="/app/ipwatch"
+# 端口模式：使用 manifest 声明的 service_port（框架注入 TRIM_SERVICE_PORT）
+PORT="${TRIM_SERVICE_PORT:-5210}"
+
+log_msg() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+check_process() {
+  local pid="$1"
+  kill -0 "$pid" 2>/dev/null
+}
+
+status_app() {
+  if [ -f "$PID_FILE" ]; then
+    local pid
+    pid="$(head -n 1 "$PID_FILE" | tr -d '[:space:]')"
+    if [ -n "$pid" ] && check_process "$pid"; then
+      return 0
+    fi
+    rm -f "$PID_FILE"
+  fi
+  return 1
+}
+
+start_app() {
+  if status_app; then
+    return 0
+  fi
+
+  log_msg "Starting IPwatch..."
+  cd "$APP_DIR" || exit 1
+  DATA_DIR="$DATA_DIR" GATEWAY_PREFIX="$GATEWAY_PREFIX" PORT="$PORT" node server.js >> "$LOG_FILE" 2>&1 &
+  echo "$!" > "$PID_FILE"
+}
+
+stop_app() {
+  log_msg "Stopping IPwatch..."
+
+  if [ ! -f "$PID_FILE" ]; then
+    return 0
+  fi
+
+  local pid
+  pid="$(head -n 1 "$PID_FILE" | tr -d '[:space:]')"
+
+  if [ -z "$pid" ] || ! check_process "$pid"; then
+    rm -f "$PID_FILE"
+    return 0
+  fi
+
+  kill -TERM "$pid" 2>> "$LOG_FILE" || true
+
+  local count=0
+  while check_process "$pid" && [ "$count" -lt 10 ]; do
+    sleep 1
+    count=$((count + 1))
+  done
+
+  if check_process "$pid"; then
+    kill -KILL "$pid" 2>> "$LOG_FILE" || true
+  fi
+
+  rm -f "$PID_FILE"
+}
+
+case "$1" in
+  start)
+    start_app
+    ;;
+  stop)
+    stop_app
+    ;;
+  status)
+    if status_app; then
+      exit 0
+    fi
+    exit 3
+    ;;
+  *)
+    echo "Unknown command: $1" > "$TRIM_TEMP_LOGFILE"
+    exit 1
+    ;;
+esac

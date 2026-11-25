@@ -1,0 +1,12 @@
+#!/bin/bash
+# 安装回调：只有本阶段框架环境变量目录才生成，初始化逻辑放这里。
+# 数据库与表结构由 server.js 启动时幂等创建（CREATE TABLE IF NOT EXISTS）。
+
+DATA_DIR="${TRIM_DATA_SHARE_PATHS%%:*}"
+if [ -z "$DATA_DIR" ]; then
+  DATA_DIR="${TRIM_PKGVAR}/data"
+fi
+
+mkdir -p "$DATA_DIR"
+echo "IPwatch install_callback: data dir ready at ${DATA_DIR}"
+exit 0
