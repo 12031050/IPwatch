@@ -74,7 +74,7 @@ IPwatch 是一个运行在飞牛 fnOS 上的第三方应用，对标 Zabbix 的�
 2. 将 FPK 文件上传到 NAS
 3. 在 SSH 中执行：
    ```bash
-   appcenter-cli install-local /path/to/ipwatch_v0.8.3.fpk
+   appcenter-cli install-local /path/to/ipwatch_v0.8.7.fpk
    ```
 4. 安装完成后，在飞牛桌面打开 IPwatch
 
@@ -83,7 +83,7 @@ IPwatch 是一个运行在飞牛 fnOS 上的第三方应用，对标 Zabbix 的�
 # 在项目目录执行（需 fnpack 工具）
 fnpack build --directory ipwatch
 ```
-打包后生成的 `ipwatch.fpk` 会按 manifest 版本号重命名（如 `ipwatch_v0.8.3.fpk`），不会覆盖历史版本。
+打包后生成的 `ipwatch.fpk` 会按 manifest 版本号重命名（如 `ipwatch_v0.8.7.fpk`），不会覆盖历史版本。
 
 ---
 
@@ -137,7 +137,7 @@ ipwatch/
 
 ## 版本
 
-当前版本：**v0.8.3**
+当前版本：**v0.8.7**
 
 完整更新记录见 [manifest](manifest) 中的 `changelog` 字段。
 

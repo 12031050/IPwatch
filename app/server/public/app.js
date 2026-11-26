@@ -7,11 +7,12 @@ const TOKEN_KEY = 'ipwatch_token';
 const $ = s => document.querySelector(s);
 const state = {
   view: 'overview', hosts: [], summary: null, records: [], feed: [], editingId: null, timer: null, needSetup: false,
-  page: { hosts: 1, down: 1, records: 1 }
+  page: { hosts: 1, down: 1, records: 1 },
+  filter: { q: '', grp: '' }
 };
 
-// 每页条数：设备管理 15、掉线主机 15、报警记录 18；实时事件流不分页（铺满容器）
-const PAGE_SIZE = { hosts: 15, down: 15, records: 18 };
+// 每页条数：设备管理不分页（全部渲染 + 鼠标滚动），掉线主机 15、报警记录 18；实时事件流不分页
+const PAGE_SIZE = { hosts: 0, down: 15, records: 18 };
 function paginate(key, rows) {
   const size = PAGE_SIZE[key];
   if (!size) return { rows, html: '' };
@@ -32,7 +33,7 @@ function paginate(key, rows) {
 function fitRows() {
   requestAnimationFrame(() => {
     const specs = [
-      { sel: '#view-hosts .tbl-wrap.full', size: PAGE_SIZE.hosts },
+      { sel: '#view-hosts .tbl-wrap.full', fixed: 42 },
       { sel: '#view-overview .ov-grid .tbl-wrap', size: PAGE_SIZE.down },
       { sel: '#view-records .tbl-wrap.full', size: PAGE_SIZE.records }
     ];
@@ -42,6 +43,8 @@ function fitRows() {
       const scroll = wrap.querySelector('.tbl-scroll');
       const thead = wrap.querySelector('thead');
       if (!scroll) continue;
+      // 设备管理全量滚动：固定紧凑行高，不随条数拉伸
+      if (s.fixed) { wrap.style.setProperty('--row-h', s.fixed + 'px'); continue; }
       const avail = scroll.clientHeight - (thead ? thead.offsetHeight : 0);
       if (avail <= 0) continue;
       // 按满页条数算固定行高，并设上限避免大屏下过高
@@ -211,6 +214,7 @@ async function refreshAll() {
     const [summary, hosts] = await Promise.all([api('/summary'), api('/hosts')]);
     state.summary = summary;
     state.hosts = hosts;
+    syncGroupFilter();
     renderSummary();
     renderHosts();
     renderDownList();
@@ -253,11 +257,21 @@ function sevHtml(s) {
   return `<span class="sev ${key}">${SEV_LABEL[key]}</span>`;
 }
 
+function filteredHosts() {
+  const q = (state.filter.q || '').trim().toLowerCase();
+  const grp = state.filter.grp || '';
+  return state.hosts.filter(h => {
+    if (q && !(h.name || '').toLowerCase().includes(q) && !(h.host || '').toLowerCase().includes(q)) return false;
+    if (grp && (h.grp || '') !== grp) return false;
+    return true;
+  });
+}
+
 function renderHosts() {
   const tbody = $('#hostTbody');
   const now = Date.now();
-  const pg = paginate('hosts', state.hosts);
-  tbody.innerHTML = pg.rows.map(h => {
+  const rows = filteredHosts();
+  tbody.innerHTML = rows.map(h => {
     const latency = h.status === 'up' && h.last_latency != null
       ? `<span class="latency-link" data-chart="${h.id}" title="查看延迟/丢包曲线">${h.last_latency < 1 ? '<1' : Math.round(h.last_latency)} ms</span>` : '—';
     const maintTag = h.maint_enabled ? ' <span class="tag" style="color:var(--amber)" title="维护窗口内静默告警">维护</span>' : '';
@@ -285,9 +299,23 @@ function renderHosts() {
       </td>
     </tr>`;
   }).join('');
-  $('#hostEmpty').style.display = state.hosts.length ? 'none' : 'block';
-  $('#hostPager').innerHTML = pg.html;
+  const isFiltered = rows.length !== state.hosts.length;
+  $('#hostEmpty').style.display = rows.length ? 'none' : 'block';
+  $('#hostEmpty').textContent = isFiltered ? '没有符合筛选条件的设备，试试清空筛选' : '还没有监控目标，点右上角「＋ 添加 IP」开始';
+  $('#hostPager').innerHTML = `<div class="pager"><span>共 ${rows.length} 台${isFiltered ? ` / ${state.hosts.length} 台` : ''} · 鼠标滚动查看全部</span></div>`;
+  $('#hostFilterInfo').textContent = isFiltered ? `筛选出 ${rows.length} / ${state.hosts.length} 台` : '';
   fitRows();
+}
+
+// 同步分组下拉选项（保留当前选中值）
+function syncGroupFilter() {
+  const sel = $('#hostFilterGrp');
+  if (!sel) return;
+  const cur = sel.value;
+  const groups = [...new Set(state.hosts.map(h => h.grp).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">全部分组</option>' + groups.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
+  sel.value = groups.includes(cur) ? cur : '';
+  if (sel.value !== cur) { state.filter.grp = ''; renderHosts(); }
 }
 
 function renderDownList() {
@@ -458,6 +486,15 @@ function renderRecords() {
   $('#recPager').innerHTML = pg.html;
   fitRows();
 }
+// 设备管理筛选：名称/IP 即时搜索 + 分组选择
+$('#hostFilterQ').addEventListener('input', e => { state.filter.q = e.target.value; renderHosts(); });
+$('#hostFilterGrp').addEventListener('change', e => { state.filter.grp = e.target.value; renderHosts(); });
+$('#hostFilterClear').addEventListener('click', () => {
+  state.filter.q = ''; state.filter.grp = '';
+  $('#hostFilterQ').value = ''; $('#hostFilterGrp').value = '';
+  renderHosts();
+});
+
 $('#recFilter').addEventListener('change', loadRecords);
 $('#btnExportCsv').addEventListener('click', () => {
   const rows = [['事件', '级别', '主机', '地址', '开始时间', '状态', '持续时间', '持续秒', '邮件状态', '微信状态', '通知次数', '已处理', '备注']];
