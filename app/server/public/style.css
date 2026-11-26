@@ -41,7 +41,8 @@ body{background:var(--bg);color:var(--txt);display:flex;overflow:hidden;}
 #view-overview,#view-hosts,#view-records{display:flex;flex-direction:column;min-height:calc(100vh - 48px);}
 #view-overview > .top,#view-hosts > .top,#view-records > .top,#view-overview > .stats{flex-shrink:0;}
 /* 总览布局：两个栏目等高并撑满可视区域，内容超出在栏目内部滚动 */
-.ov-grid{display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:stretch;flex:1;min-height:380px;}
+/* 右侧事件流宽度 = 统计卡宽度（4 列等宽、gap 14px），与「今日报警」卡片左右边缘对齐 */
+.ov-grid{display:grid;grid-template-columns:1fr calc((100% - 42px)/4);gap:20px;align-items:stretch;flex:1;min-height:380px;}
 .ov-grid .tbl-wrap,.ov-grid .feed{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
 .tbl-scroll{flex:1;min-height:0;overflow-y:auto;}
 .feed-scroll{flex:1;min-height:0;overflow-y:auto;}
@@ -54,8 +55,8 @@ body{background:var(--bg);color:var(--txt);display:flex;overflow:hidden;}
 .filter-bar select{min-width:130px;cursor:pointer;}
 .filter-bar input:focus,.filter-bar select:focus{border-color:var(--blue);}
 .filter-bar .fi{margin-left:auto;font-size:12px;color:var(--sub);}
-/* 滚动时表头吸顶 */
-.host-table thead th{position:sticky;top:0;background:var(--panel);z-index:2;}
+/* 滚动时表头吸顶（设备管理 / 掉线主机 / 报警记录通用） */
+.tbl-scroll thead th{position:sticky;top:0;background:var(--panel);z-index:2;}
 
 /* 分页控件 */
 .pager{display:flex;align-items:center;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--line);flex-shrink:0;font-size:12px;color:var(--sub);}
@@ -196,6 +197,8 @@ tr.hl{background:rgba(255,77,90,.05);}
 @media (max-width: 1100px){
   .layout{grid-template-columns:1fr;}
   .stats{grid-template-columns:repeat(2,1fr);}
+  /* 2 列统计卡：卡片宽 =(100% - 14px)/2，事件流同步对齐 */
+  .ov-grid{grid-template-columns:1fr calc((100% - 14px)/2);}
   .side{width:64px;padding:16px 8px;}
   .logo b,.nav a,.side-foot{display:none;}
 }

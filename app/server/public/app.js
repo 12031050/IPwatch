@@ -11,8 +11,8 @@ const state = {
   filter: { q: '', grp: '' }
 };
 
-// 每页条数：设备管理不分页（全部渲染 + 鼠标滚动），掉线主机 15、报警记录 18；实时事件流不分页
-const PAGE_SIZE = { hosts: 0, down: 15, records: 18 };
+// 全部栏目均不分页：全量渲染 + 鼠标滚动；实时事件流也不分页
+const PAGE_SIZE = { hosts: 0, down: 0, records: 0 };
 function paginate(key, rows) {
   const size = PAGE_SIZE[key];
   if (!size) return { rows, html: '' };
@@ -34,8 +34,8 @@ function fitRows() {
   requestAnimationFrame(() => {
     const specs = [
       { sel: '#view-hosts .tbl-wrap.full', fixed: 42 },
-      { sel: '#view-overview .ov-grid .tbl-wrap', size: PAGE_SIZE.down },
-      { sel: '#view-records .tbl-wrap.full', size: PAGE_SIZE.records }
+      { sel: '#view-overview .ov-grid .tbl-wrap', fixed: 42 },
+      { sel: '#view-records .tbl-wrap.full', fixed: 42 }
     ];
     for (const s of specs) {
       const wrap = $(s.sel);
@@ -320,15 +320,14 @@ function syncGroupFilter() {
 
 function renderDownList() {
   const downs = state.hosts.filter(h => h.status === 'down');
-  const pg = paginate('down', downs);
-  $('#downTbody').innerHTML = pg.rows.map(h => `<tr>
+  $('#downTbody').innerHTML = downs.map(h => `<tr>
     <td><span class="st down"><i></i>掉线</span></td>
     <td>${esc(h.name)}</td>
-    <td style="font-family:Consolas,monospace">${esc(h.host)}:${h.port}</td>
+    <td style="font-family:Consolas,monospace">${esc(h.host)}${h.port ? ':' + h.port : ''}</td>
     <td class="dur">${fmtTs(h.last_change)}</td>
   </tr>`).join('');
   $('#downEmpty').style.display = downs.length ? 'none' : 'block';
-  $('#downPager').innerHTML = pg.html;
+  $('#downPager').innerHTML = `<div class="pager"><span>共 ${downs.length} 台掉线${downs.length ? ' · 鼠标滚动查看全部' : ''}</span></div>`;
   fitRows();
 }
 
@@ -455,8 +454,7 @@ function notifyCell(status, detail) {
 }
 function renderRecords() {
   const tbody = $('#recTbody');
-  const pg = paginate('records', state.records);
-  tbody.innerHTML = pg.rows.map(r => {
+  tbody.innerHTML = state.records.map(r => {
     const ev = r.event === 'down'
       ? '<span class="lvl down"><i></i>掉线</span>'
       : '<span class="lvl rec"><i></i>恢复</span>';
@@ -483,7 +481,7 @@ function renderRecords() {
     </tr>`;
   }).join('');
   $('#recEmpty').style.display = state.records.length ? 'none' : 'block';
-  $('#recPager').innerHTML = pg.html;
+  $('#recPager').innerHTML = `<div class="pager"><span>共 ${state.records.length} 条${state.records.length ? ' · 鼠标滚动查看全部' : ''}</span></div>`;
   fitRows();
 }
 // 设备管理筛选：名称/IP 即时搜索 + 分组选择
