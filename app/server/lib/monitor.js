@@ -90,7 +90,28 @@ function arpProbe(host, timeoutMs = ARP_TIMEOUT_MS) {
   });
 }
 
+// 从 ping 输出里解析真实 RTT（往返时间）：
+// Linux: "time=0.045 ms" / "time<1 ms"；Windows: "时间=0ms" / "时间<1ms" / "time=1ms"。
+// 返回毫秒数（浮点）；解析不到返回 null，由调用方回退到墙钟时间。
+function parsePingRtt(text) {
+  if (!text) return null;
+  const s = String(text);
+  // 优先严格匹配："time=0.045 ms"（Linux）、"时间=1ms"（Windows 英文/Unicode 解码）
+  let m = s.match(/(?:time|时间)\s*[=<]\s*(\d+(?:\.\d+)?)\s*ms/i);
+  if (!m) {
+    // 某些系统 ping 输出为本地编码（如 Windows 中文 GBK，"时间"被 UTF-8 解码成乱码），
+    // 退而从带 TTL 的应答行里取 "=<数字>ms"，数字与 ms 均为 ASCII 不受编码影响
+    const reply = s.split(/\r?\n/).find(line => /TTL/i.test(line) && /[=<]\s*\d+(?:\.\d+)?\s*ms/i.test(line));
+    if (reply) m = reply.match(/[=<]\s*(\d+(?:\.\d+)?)\s*ms/i);
+  }
+  if (!m) return null;
+  const v = parseFloat(m[1]);
+  return Number.isFinite(v) && v >= 0 ? v : null;
+}
+
 // ICMP ping：调用系统 ping（飞牛基础系统自带 iputils-ping）。
+// 延迟取 ping 输出里的真实 RTT，而不是"spawn 子进程到退出"的墙钟耗时——
+// 后者包含进程启动与事件循环调度开销，在 NAS 上可达数百毫秒，会让趋势图整体虚高。
 // 注意：第三方应用以低权用户运行，若内核 ping_group_range 不允许，退出码非 0，会自动回退 TCP，不影响判定。
 function icmpProbe(host, timeoutMs = PING_TIMEOUT_MS) {
   return new Promise(resolve => {
@@ -99,16 +120,20 @@ function icmpProbe(host, timeoutMs = PING_TIMEOUT_MS) {
     const args = process.platform === 'win32'
       ? ['-n', '1', '-w', String(timeoutMs), host]
       : ['-c', '1', '-W', String(Math.ceil(timeoutMs / 1000)), host];
-    let settled = false, child;
+    let settled = false, child, out = '';
     const finish = (ok, noCmd) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       if (noCmd) pingUnavailable = true;
-      resolve(ok ? Math.max(1, Date.now() - start) : -1);
+      if (!ok) return resolve(-1);
+      const rtt = parsePingRtt(out);
+      // 真实 RTT 优先；某些 ping 实现输出格式特殊解析不到时，回退墙钟耗时（至少不会判失败）
+      resolve(rtt != null ? rtt : Math.max(1, Date.now() - start));
     };
     try {
-      child = spawn('ping', args, { stdio: 'ignore' });
+      child = spawn('ping', args, { stdio: ['ignore', 'pipe', 'ignore'] });
+      child.stdout.on('data', chunk => { out += chunk.toString(); });
       child.once('error', e => finish(false, e && e.code === 'ENOENT'));
       child.once('close', code => finish(code === 0, false));
     } catch (_) { return finish(false, true); }
@@ -127,7 +152,8 @@ async function reachability(host, port) {
   const own = await tcpProbe(host, port, PROBE_TIMEOUT_MS);
   if (own >= 0) return { ok: true, latency: own, via: 'tcp' };
   const arp = await arpProbe(host);
-  if (arp >= 0) return { ok: true, latency: arp, via: 'arp' };
+  // ARP 只是"问 MAC 拿回应"，没有 RTT 概念；返回 null 让前端显示 —，曲线也不画假点
+  if (arp >= 0) return { ok: true, latency: null, via: 'arp' };
   return { ok: false, latency: -1, via: '' };
 }
 
@@ -195,10 +221,10 @@ class Monitor {
     const latency = probe.latency;
     const retries = Math.max(1, h.retries || def.retries);
 
-    // 每次探测都写入延迟历史（无论在线/掉线），供趋势曲线使用
-    recordLatency(db, h.id, latency >= 0, latency >= 0 ? latency : null);
+    // 每次探测都写入延迟历史（无论在线/掉线）；ARP 在线无 RTT，latency 为 null，不画延迟点但计入成功采样
+    recordLatency(db, h.id, probe.ok, latency);
 
-    if (latency >= 0) {
+    if (probe.ok) {
       // 探测成功
       if (h.status === 'down') {
         const duration = Math.max(1, Math.round((now - (h.last_change || now)) / 1000));

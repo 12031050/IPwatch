@@ -259,7 +259,7 @@ function renderHosts() {
   const pg = paginate('hosts', state.hosts);
   tbody.innerHTML = pg.rows.map(h => {
     const latency = h.status === 'up' && h.last_latency != null
-      ? `<span class="latency-link" data-chart="${h.id}" title="查看延迟/丢包曲线">${Math.round(h.last_latency)} ms</span>` : '—';
+      ? `<span class="latency-link" data-chart="${h.id}" title="查看延迟/丢包曲线">${h.last_latency < 1 ? '<1' : Math.round(h.last_latency)} ms</span>` : '—';
     const maintTag = h.maint_enabled ? ' <span class="tag" style="color:var(--amber)" title="维护窗口内静默告警">维护</span>' : '';
     // 「最近变化」合并进状态列：与状态徽标同一水平行显示在线时长 / 掉线时间
     const change = h.paused ? '<span class="st-sub">手动暂停</span>'
@@ -354,7 +354,8 @@ $('#hostTbody').addEventListener('click', async e => {
       op.textContent = '…';
       const r = await api(`/hosts/${id}/check`, { method: 'POST' });
       const viaLabel = { icmp: 'Ping', tcp: '端口', arp: 'ARP（无需端口）' }[r.via] || '探测';
-      toast(r.ok ? `${h.name} 在线（${viaLabel}${r.via === 'arp' ? '' : `，${r.latency} ms`}）` : `${h.name} 探测失败（无响应）`);
+      const latTxt = r.latency == null ? '' : `，${r.latency < 1 ? '<1' : Math.round(r.latency)} ms`;
+      toast(r.ok ? `${h.name} 在线（${viaLabel}${latTxt}）` : `${h.name} 探测失败（无响应）`);
       refreshAll();
     } else if (op.dataset.act === 'pause') {
       await api(`/hosts/${id}`, { method: 'PUT', body: JSON.stringify({ ...h, paused: !h.paused }) });
@@ -795,12 +796,13 @@ async function loadChart() {
   const hours = $('#chartHours').value;
   try {
     const d = await api(`/hosts/${chartHostId}/latency?hours=${hours}`);
+    const latTxt = v => v == null ? '—' : `${v < 1 ? '<1' : v} ms`;
     $('#chartStats').innerHTML = `
       <div>采样点<b>${d.total}</b></div>
       <div>丢包率<span class="loss"><b>${d.lossRate}%</b></span></div>
-      <div>平均延迟<b>${d.avg} ms</b></div>
-      <div>最低<b>${d.min} ms</b></div>
-      <div>最高<b>${d.max} ms</b></div>`;
+      <div>平均延迟<b>${latTxt(d.avg)}</b></div>
+      <div>最低<b>${latTxt(d.min)}</b></div>
+      <div>最高<b>${latTxt(d.max)}</b></div>`;
     drawChart(d.points, hours);
   } catch (e) { $('#chartStats').innerHTML = `<span class="fail">加载失败：${esc(e.message)}</span>`; }
 }

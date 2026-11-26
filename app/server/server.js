@@ -566,9 +566,10 @@ const server = http.createServer(async (req, res) => {
         const total = rows.length;
         const failed = rows.filter(r => !r.ok).length;
         const okRows = rows.filter(r => r.ok && r.latency != null);
-        const avg = okRows.length ? Math.round(okRows.reduce((s, r) => s + r.latency, 0) / okRows.length) : 0;
-        const max = okRows.length ? Math.round(Math.max(...okRows.map(r => r.latency))) : 0;
-        const min = okRows.length ? Math.round(Math.min(...okRows.map(r => r.latency))) : 0;
+        // 全程 ARP（无 RTT）或无采样时返回 null，前端显示 —，避免误报 0 ms
+        const avg = okRows.length ? +okRows.reduce((s, r) => s + r.latency, 0) / okRows.length : null;
+        const max = okRows.length ? Math.max(...okRows.map(r => r.latency)) : null;
+        const min = okRows.length ? Math.min(...okRows.map(r => r.latency)) : null;
         return sendJson(res, 200, { points: rows, total, failed, lossRate: total ? +(failed / total * 100).toFixed(1) : 0, avg, max, min, hours });
       }
 
