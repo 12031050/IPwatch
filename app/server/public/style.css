@@ -63,8 +63,8 @@ tr:last-child td{border-bottom:none;}
 tbody tr:hover{background:#131a27;}
 /* 表格宽度铺满容器 */
 .tbl-scroll table{width:100%;}
-/* 状态列：徽标 + 最近变化小字上下两行 */
-.st-cell{display:flex;flex-direction:column;gap:3px;line-height:1.25;}
+/* 状态列：徽标 + 最近变化小字同一水平行 */
+.st-cell{display:flex;flex-direction:row;align-items:center;gap:8px;line-height:1.25;white-space:nowrap;}
 .st-sub{font-size:11px;color:var(--sub);white-space:nowrap;}
 .st-sub.green{color:var(--green);}
 .st-sub.red{color:var(--red);}

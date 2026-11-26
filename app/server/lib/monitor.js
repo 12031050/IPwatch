@@ -1,11 +1,16 @@
 'use strict';
-// monitor.js —— 主机在线探测引擎：ICMP Ping 优先 + TCP 端口兜底，防抖判定掉线/恢复，触发通知
+// monitor.js —— 主机在线探测引擎：ICMP Ping → TCP（含 RST 判活）→ 同网段 ARP 兜底
+// 端口可留空：port=0 时不做 TCP 探测，仅用 Ping / ARP 判定在线，满足"只有 IP 也要能检测"的场景
 const net = require('net');
+const fs = require('fs');
+const os = require('os');
+const dgram = require('dgram');
 const { spawn } = require('child_process');
 const { getDb, getSetting } = require('./db');
 
 const PROBE_TIMEOUT_MS = 3000;
 const PING_TIMEOUT_MS = 1500;
+const ARP_TIMEOUT_MS = 900;
 let pingUnavailable = false; // 系统无 ping 命令时停用 ICMP，避免每轮无用开销
 
 // 记录一次探测结果到延迟历史（用于趋势曲线 / 丢包率）
@@ -16,21 +21,72 @@ function recordLatency(db, hostId, ok, latency) {
   } catch (_) { /* 历史表缺失等异常不应影响主探测流程 */ }
 }
 
+// TCP 探测：connect 成功 = 在线；ECONNREFUSED/ECONNRESET（主机回 RST）= 端口没开但主机在线；
+// 只有超时/网络不可达才算失败。这样门禁机、摄像头等"没有配的端口"也不会被误判掉线。
 function tcpProbe(host, port, timeoutMs = PROBE_TIMEOUT_MS) {
   return new Promise(resolve => {
+    if (!(port >= 1 && port <= 65535)) return resolve(-1); // 端口留空：不做 TCP 探测
     const start = Date.now();
     let settled = false;
-    const done = ok => {
+    const done = (ok, via) => {
       if (settled) return;
       settled = true;
       try { socket.destroy(); } catch (_) {}
-      resolve(ok ? Date.now() - start : -1);
+      resolve(ok ? Math.max(1, Date.now() - start) : -1);
     };
     const socket = net.connect({ host, port });
     socket.setTimeout(timeoutMs);
     socket.once('connect', () => done(true));
+    socket.once('error', e => {
+      const code = e && e.code;
+      if (code === 'ECONNREFUSED' || code === 'ECONNRESET') done(true);
+      else done(false);
+    });
     socket.once('timeout', () => done(false));
-    socket.once('error', () => done(false));
+  });
+}
+
+// 同网段 ARP 探测：先发一个 UDP 包触发内核 ARP 解析，再读 /proc/net/arp 看是否拿到 MAC。
+// 不依赖端口、不依赖设备是否回 Ping——只要网卡在线并响应 ARP 即为在线。仅对同网段 IPv4 有效。
+function localIPv4() {
+  const out = [];
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const ni of list || []) {
+      if (ni.family === 'IPv4' && !ni.internal) out.push({ addr: ni.address.split('.').map(Number), mask: ni.netmask.split('.').map(Number) });
+    }
+  }
+  return out;
+}
+function sameLan(host) {
+  if (!/^\d+\.\d+\.\d+\.\d+$/.test(host)) return false;
+  const ip = host.split('.').map(Number);
+  return localIPv4().some(n => ip.every((v, i) => (v & n.mask[i]) === (n.addr[i] & n.mask[i])));
+}
+function arpProbe(host, timeoutMs = ARP_TIMEOUT_MS) {
+  if (process.platform !== 'linux' || !sameLan(host)) return Promise.resolve(-1);
+  return new Promise(resolve => {
+    let sock;
+    try {
+      sock = dgram.createSocket('udp4');
+      sock.on('error', () => {});
+      sock.send(Buffer.from([0]), 9, host, () => { try { sock.close(); } catch (_) {} });
+    } catch (_) { try { sock && sock.close(); } catch (_) {} }
+    const deadline = Date.now() + timeoutMs;
+    const check = () => {
+      try {
+        const lines = fs.readFileSync('/proc/net/arp', 'utf8').split('\n').slice(1);
+        for (const line of lines) {
+          const c = line.trim().split(/\s+/);
+          if (c[0] === host && parseInt(c[2], 16) & 2 && c[3] && !/^00:00:00:00:00:00$/i.test(c[3])) {
+            try { sock && sock.close(); } catch (_) {}
+            return resolve(1);
+          }
+        }
+      } catch (_) {}
+      if (Date.now() >= deadline) { try { sock && sock.close(); } catch (_) {} return resolve(-1); }
+      setTimeout(check, 120);
+    };
+    setTimeout(check, 150);
   });
 }
 
@@ -60,14 +116,18 @@ function icmpProbe(host, timeoutMs = PING_TIMEOUT_MS) {
   });
 }
 
-// 综合可达性：ICMP 通 → 在线（解决「设备在线但配置的端口没开」被误判掉线）；
-// ICMP 不通时，配置端口通也算在线（兼容禁 ping 的设备）。
+// 综合可达性（端口可留空）：
+// ① ICMP 通 → 在线；
+// ② 配了端口 → TCP 连上或收到 RST 都算在线（RST 说明主机活着、只是端口没开）；
+// ③ 同网段 ARP 拿到 MAC → 在线（不依赖 ping 和端口，专治禁 ping/无端口的设备）。
 // ⚠️ 不用「常见端口兜底」：中间设备（如本机 DNS/网关）回包会造成误判。
 async function reachability(host, port) {
   const icmp = await icmpProbe(host);
   if (icmp >= 0) return { ok: true, latency: icmp, via: 'icmp' };
   const own = await tcpProbe(host, port, PROBE_TIMEOUT_MS);
   if (own >= 0) return { ok: true, latency: own, via: 'tcp' };
+  const arp = await arpProbe(host);
+  if (arp >= 0) return { ok: true, latency: arp, via: 'arp' };
   return { ok: false, latency: -1, via: '' };
 }
 
@@ -146,7 +206,7 @@ class Monitor {
           .run('up', now, latency, now, h.id);
         const r = db.prepare(
           'INSERT INTO records (host_id, host_name, host_addr, event, start_at, created_at, duration_s, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        ).run(h.id, h.name, `${h.host}:${h.port}`, 'up', h.last_change || now, now, duration, h.severity || 'warning');
+        ).run(h.id, h.name, h.port ? `${h.host}:${h.port}` : h.host, 'up', h.last_change || now, now, duration, h.severity || 'warning');
         if (this.onEvent) this.onEvent({ ...h, status: 'up' }, 'up', { recordId: r.lastInsertRowid, duration });
       } else {
         // 首次探测成功（unknown -> up）时，把在线起始时间记为现在，避免"保持在线 2 万天"
@@ -162,7 +222,7 @@ class Monitor {
           .run('down', fails, now, now, h.id);
         const r = db.prepare(
           'INSERT INTO records (host_id, host_name, host_addr, event, start_at, created_at, severity) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        ).run(h.id, h.name, `${h.host}:${h.port}`, 'down', now, now, h.severity || 'warning');
+        ).run(h.id, h.name, h.port ? `${h.host}:${h.port}` : h.host, 'down', now, now, h.severity || 'warning');
         if (this.onEvent) this.onEvent({ ...h, status: 'down', fails }, 'down', { recordId: r.lastInsertRowid });
       } else {
         db.prepare('UPDATE hosts SET fails = ?, last_check = ? WHERE id = ?').run(fails, now, h.id);

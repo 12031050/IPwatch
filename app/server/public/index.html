@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IPwatch</title>
-<link rel="stylesheet" href="style.css?v=084">
+<link rel="stylesheet" href="style.css?v=085">
 </head>
 <body>
 <aside class="side">
@@ -17,7 +17,7 @@
     <a data-view="settings" href="#">⚙ 系统设置</a>
   </nav>
   <div class="side-foot">
-    <div class="ver">v0.8.4 · 梦非常浪漫</div>
+    <div class="ver">v0.8.5 · 梦非常浪漫</div>
   </div>
 </aside>
 
@@ -67,7 +67,7 @@
       </div>
     </div>
     <div class="tbl-wrap full">
-      <div class="tbl-head">监控设备 <span class="tag">Ping + 端口探测 · 全部设备在此维护</span></div>
+      <div class="tbl-head">监控设备 <span class="tag">Ping / ARP / 端口（可留空）· 全部设备在此维护</span></div>
       <div class="tbl-scroll">
         <table class="host-table">
           <colgroup>
@@ -223,7 +223,7 @@
       </div>
       <div class="panel">
         <h3>ℹ 关于</h3>
-        <div class="hint">IPwatch v0.8.4<br>轻量主机在线监测 · TCP 探测 · 邮件/微信报警<br>开发者：梦非常浪漫<br>数据存储：应用数据目录 SQLite，按保留天数自动清理</div>
+        <div class="hint">IPwatch v0.8.5<br>轻量主机在线监测 · ICMP+TCP+ARP 探测 · 邮件/微信报警<br>开发者：梦非常浪漫<br>数据存储：应用数据目录 SQLite，按保留天数自动清理</div>
         <div class="hint" id="runtimeInfo"></div>
       </div>
     </div>
@@ -238,7 +238,7 @@
     <label>名称<input type="text" id="mName" placeholder="如：主路由 / 摄像头-车库"></label>
     <label>IP 或域名<input type="text" id="mHost" placeholder="192.168.1.1 或 example.com"></label>
     <div class="row2">
-      <label>TCP 端口<input type="number" id="mPort" value="80" min="1" max="65535"></label>
+      <label>TCP 端口（可留空，只用 Ping/ARP）<input type="number" id="mPort" value="" min="0" max="65535" placeholder="留空 = 不依赖端口"></label>
       <label>探测间隔（秒）<input type="number" id="mInterval" value="30" min="10" max="3600"></label>
     </div>
     <label>连续失败几次判定掉线<input type="number" id="mRetries" value="3" min="1" max="10"></label>
@@ -354,6 +354,6 @@
 </div>
 
 <div id="toast" class="toast" style="display:none"></div>
-<script src="app.js?v=084"></script>
+<script src="app.js?v=085"></script>
 </body>
 </html>

@@ -86,6 +86,8 @@ function fmtDur(s) {
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+// 地址显示：端口留空（0）时只显示 IP/域名
+function addrText(host, port) { return esc(host) + (port ? ':' + port : ''); }
 
 function toast(msg, ms = 2400) {
   const t = $('#toast');
@@ -259,16 +261,16 @@ function renderHosts() {
     const latency = h.status === 'up' && h.last_latency != null
       ? `<span class="latency-link" data-chart="${h.id}" title="查看延迟/丢包曲线">${Math.round(h.last_latency)} ms</span>` : '—';
     const maintTag = h.maint_enabled ? ' <span class="tag" style="color:var(--amber)" title="维护窗口内静默告警">维护</span>' : '';
-    // 「最近变化」合并进状态列：状态徽标下方一行小字显示在线时长 / 掉线时间
+    // 「最近变化」合并进状态列：与状态徽标同一水平行显示在线时长 / 掉线时间
     const change = h.paused ? '<span class="st-sub">手动暂停</span>'
-      : h.status === 'down' ? `<span class="st-sub red">${fmtTs(h.last_change).slice(5)} 掉线</span>`
-      : h.status === 'up' ? `<span class="st-sub green">保持在线 ${fmtDur(Math.floor((now - h.last_change) / 1000))}</span>`
+      : h.status === 'down' ? `<span class="st-sub red">${fmtTs(h.last_change).slice(5, 16)}</span>`
+      : h.status === 'up' ? `<span class="st-sub green">${fmtDur(Math.floor((now - h.last_change) / 1000))}</span>`
       : '<span class="st-sub">等待首轮探测</span>';
     const statusCell = `<div class="st-cell">${statusHtml(h)}${change}</div>`;
     return `<tr>
       <td>${statusCell}</td>
       <td>${esc(h.name)}${maintTag}</td>
-      <td style="font-family:Consolas,monospace">${esc(h.host)}:${h.port}</td>
+      <td style="font-family:Consolas,monospace">${addrText(h.host, h.port)}</td>
       <td>${latency}</td>
       <td>${sevHtml(h.severity)}</td>
       <td>${h.grp ? `<span class="tag">${esc(h.grp)}</span>` : '<span class="dur">—</span>'}</td>
@@ -351,7 +353,8 @@ $('#hostTbody').addEventListener('click', async e => {
     if (op.dataset.act === 'check') {
       op.textContent = '…';
       const r = await api(`/hosts/${id}/check`, { method: 'POST' });
-      toast(r.ok ? `${h.name} 在线，延迟 ${r.latency} ms（${r.via === 'icmp' ? 'Ping' : '端口'}探测）` : `${h.name} 探测失败（无响应）`);
+      const viaLabel = { icmp: 'Ping', tcp: '端口', arp: 'ARP（无需端口）' }[r.via] || '探测';
+      toast(r.ok ? `${h.name} 在线（${viaLabel}${r.via === 'arp' ? '' : `，${r.latency} ms`}）` : `${h.name} 探测失败（无响应）`);
       refreshAll();
     } else if (op.dataset.act === 'pause') {
       await api(`/hosts/${id}`, { method: 'PUT', body: JSON.stringify({ ...h, paused: !h.paused }) });
@@ -375,7 +378,7 @@ function openHostModal(h) {
   $('#hostModalTitle').textContent = h ? '编辑主机' : '添加 IP';
   $('#mName').value = h ? h.name : '';
   $('#mHost').value = h ? h.host : '';
-  $('#mPort').value = h ? h.port : 80;
+  $('#mPort').value = h ? (h.port || '') : '';
   $('#mInterval').value = h ? h.interval_s : 30;
   $('#mRetries').value = h ? h.retries : 3;
   $('#mGroup').value = h ? (h.grp || '') : '';
@@ -392,7 +395,7 @@ $('#mCancel').addEventListener('click', () => $('#hostModal').style.display = 'n
 $('#mSave').addEventListener('click', async () => {
   const body = JSON.stringify({
     name: $('#mName').value, host: $('#mHost').value,
-    port: +$('#mPort').value, interval_s: +$('#mInterval').value, retries: +$('#mRetries').value,
+    port: +($('#mPort').value || 0), interval_s: +$('#mInterval').value, retries: +$('#mRetries').value,
     grp: $('#mGroup').value.trim(), notify: $('#mNotify').value,
     severity: $('#mSeverity').value, notify_recovery: +$('#mNotifyRecovery').value,
     maint_enabled: $('#mMaintEnabled').checked ? 1 : 0,

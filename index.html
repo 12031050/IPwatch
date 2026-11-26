@@ -117,16 +117,16 @@ footer a:hover{color:var(--blue)}
       <h1>IPwatch<small>IP 哨兵</small></h1>
       <p class="tagline">轻量主机在线监测工具。添加 IP 后周期探测，掉线自动发邮件或微信提醒，应用内实时查看报警记录——把 NAS 上的设备状态尽在掌握。</p>
       <div class="badges">
-        <span>版本 <b>v0.8.4</b></span>
+        <span>版本 <b>v0.8.5</b></span>
         <span>平台 <b>飞牛 fnOS</b></span>
-        <span>探测 <b>ICMP + TCP</b></span>
+        <span>探测 <b>ICMP + TCP + ARP</b></span>
         <span>通知 <b>邮件 / 微信 / 钉钉 / 飞书</b></span>
         <span>数据 <b>本地 SQLite</b></span>
       </div>
       <div class="cta">
-        <a class="btn btn-primary" href="https://github.com/12031050/IPwatch/releases/download/v0.8.4/ipwatch_v0.8.4.fpk">⬇ 下载 FPK 安装包</a>
+        <a class="btn btn-primary" href="https://github.com/12031050/IPwatch/releases/download/v0.8.5/ipwatch_v0.8.5.fpk">⬇ 下载 FPK 安装包</a>
         <a class="btn btn-ghost" href="https://github.com/12031050/IPwatch" target="_blank">★ GitHub 仓库</a>
-        <span class="hint">v0.8.4 · 681 KB</span>
+        <span class="hint">v0.8.5 · 682 KB</span>
       </div>
     </div>
   </div>
@@ -136,7 +136,7 @@ footer a:hover{color:var(--blue)}
   <div class="container">
     <h2>核心功能</h2>
     <div class="feats">
-      <div class="feat"><div class="ic">◎</div><h3>设备在线监测</h3><p>添加 IP / 域名与端口，周期探测。ICMP 优先、TCP 兜底，端口关闭但主机在线不再误报掉线。</p></div>
+      <div class="feat"><div class="ic">◎</div><h3>设备在线监测</h3><p>只需填 IP 即可周期探测。ICMP 优先、TCP 兜底（RST 判活）、同网段 ARP 三种方式，端口可留空，端口关闭但主机在线不再误报掉线。</p></div>
       <div class="feat"><div class="ic">⚑</div><h3>多渠道告警</h3><p>掉线自动发邮件或微信。支持 Server 酱、企业微信、钉钉（含加签）、飞书和自定义 Webhook，每台设备可单独设渠道。</p></div>
       <div class="feat"><div class="ic">⟳</div><h3>重复提醒与维护窗口</h3><p>持续掉线可每 N 小时自动重发提醒；维护窗口内静默告警、照常监控，避免计划内停机误报。</p></div>
       <div class="feat"><div class="ic">▤</div><h3>报警记录与处理</h3><p>掉线 / 恢复全程留痕，记录带告警级别、通知结果，可标记处理并写备注，支持一键补发和 CSV 导出。</p></div>
@@ -164,7 +164,7 @@ footer a:hover{color:var(--blue)}
     <div class="steps">
       <div class="step"><div class="n">01</div><h3>下载安装包</h3><p>点击上方下载按钮，获取最新版 FPK 文件。</p></div>
       <div class="step"><div class="n">02</div><h3>上传到 NAS</h3><p>将 FPK 文件上传到飞牛 NAS 的任意目录。</p></div>
-      <div class="step"><div class="n">03</div><h3>安装应用</h3><p>在 SSH 中执行本地安装命令。</p><code>appcenter-cli install-local /path/to/ipwatch_v0.8.4.fpk</code></div>
+      <div class="step"><div class="n">03</div><h3>安装应用</h3><p>在 SSH 中执行本地安装命令。</p><code>appcenter-cli install-local /path/to/ipwatch_v0.8.5.fpk</code></div>
       <div class="step"><div class="n">04</div><h3>开始使用</h3><p>安装后在桌面打开 IPwatch，首次进入需设置访问密码。</p></div>
     </div>
   </div>
@@ -174,10 +174,10 @@ footer a:hover{color:var(--blue)}
   <div class="dl">
     <h2>准备好监控你的设备了吗？</h2>
     <p>下载 FPK 安装包，几分钟内部署到你的飞牛 NAS。</p>
-    <a class="btn btn-primary" href="https://github.com/12031050/IPwatch/releases/download/v0.8.4/ipwatch_v0.8.4.fpk">⬇ 下载 ipwatch_v0.8.4.fpk</a>
+    <a class="btn btn-primary" href="https://github.com/12031050/IPwatch/releases/download/v0.8.5/ipwatch_v0.8.5.fpk">⬇ 下载 ipwatch_v0.8.5.fpk</a>
     <div class="meta">
-      <span>版本 <b>v0.8.4</b></span>
-      <span>大小 <b>681 KB</b></span>
+      <span>版本 <b>v0.8.5</b></span>
+      <span>大小 <b>682 KB</b></span>
       <span>依赖 <b>Node.js v22</b></span>
       <span>开源协议 <b>见 LICENSE</b></span>
     </div>

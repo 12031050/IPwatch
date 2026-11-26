@@ -57,7 +57,7 @@ function buildDownMessage(rec, host, mode, count) {
   const title = `${prefix}${sevTag}${rec.host_name} 掉线提醒`;
   const modeLine = mode === 'repeat' ? `\n提醒次数：第 ${count || 2} 次（设备仍掉线）`
     : mode === 'resend' ? '\n\n—— 此条为手动补发的历史报警 ——' : '';
-  const addr = rec.host_addr || (host ? `${host.host}:${host.port}` : '');
+  const addr = rec.host_addr || (host ? (host.port ? `${host.host}:${host.port}` : host.host) : '');
   const text = `告警级别：${sevText(sev)}\n主机：${rec.host_name}（${addr}）\n掉线时间：${downAt}${modeLine}\n当前时间：${ts}\n\n—— 来自 NAS 上的 IPwatch`;
   return { title, text };
 }
@@ -142,12 +142,12 @@ async function onMonitorEvent(host, event, extra) {
   let title, text;
   if (event === 'down') {
     title = `【IPwatch 掉线】${sevTag}${host.name}`;
-    text = `告警级别：${sevText(sev)}\n主机：${host.name}（${host.host}:${host.port}）\n状态：探测失败，连续 ${host.fails || '?'} 次无响应\n时间：${ts}\n\n—— 来自 NAS 上的 IPwatch`;
+    text = `告警级别：${sevText(sev)}\n主机：${host.name}（${host.port ? `${host.host}:${host.port}` : host.host}）\n状态：探测失败，连续 ${host.fails || '?'} 次无响应\n时间：${ts}\n\n—— 来自 NAS 上的 IPwatch`;
   } else {
     const mins = extra && extra.duration ? Math.round(extra.duration / 60) : 0;
     const durText = mins >= 1 ? `${mins} 分钟` : `${extra.duration || '?'} 秒`;
     title = `【IPwatch 已恢复】${host.name}`;
-    text = `主机：${host.name}（${host.host}:${host.port}）\n状态：恢复在线\n掉线时长：${durText}\n时间：${ts}\n\n—— 来自 NAS 上的 IPwatch`;
+    text = `主机：${host.name}（${host.port ? `${host.host}:${host.port}` : host.host}）\n状态：恢复在线\n掉线时长：${durText}\n时间：${ts}\n\n—— 来自 NAS 上的 IPwatch`;
   }
 
   const updates = {};
@@ -319,7 +319,8 @@ function issueToken() {
 function validateHost(body) {
   const name = String(body.name || '').trim().slice(0, 64);
   const host = String(body.host || '').trim().slice(0, 120);
-  const port = parseInt(body.port, 10);
+  const portRaw = parseInt(body.port, 10);
+  const port = Number.isNaN(portRaw) ? 0 : portRaw; // 留空 = 0，不用端口探测
   const interval = parseInt(body.interval_s, 10) || 30;
   const retries = parseInt(body.retries, 10) || 3;
   const grp = String(body.grp || '').trim().slice(0, 32);
@@ -332,7 +333,8 @@ function validateHost(body) {
   const maintEnd = hhmm(body.maint_end);
   if (!name) return { err: '名称不能为空' };
   if (!/^([a-zA-Z0-9._-]+|\[[0-9a-fA-F:]+\])$/.test(host)) return { err: 'IP 或域名格式不正确' };
-  if (!(port >= 1 && port <= 65535)) return { err: '端口必须在 1-65535' };
+  // 端口可留空（0）：只用 Ping + ARP 判定在线，不依赖任何 TCP 端口
+  if (!(port >= 0 && port <= 65535)) return { err: '端口留空或填 1-65535' };
   return {
     name, host, port, interval: Math.min(Math.max(interval, 10), 3600),
     retries: Math.min(Math.max(retries, 1), 10), grp, notify,
