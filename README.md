@@ -1,8 +1,36 @@
-# IPwatch · IP 哨兵
+<div align="center">
 
-> 轻量级主机在线监测工具，专为飞牛 fnOS 打造。添加 IP 后周期探测，掉线自动发邮件或微信提醒，应用内实时查看报警记录。
+<img src="ICON_256.PNG" alt="IPwatch Logo" width="128">
 
-<img src="ICON_256.PNG" alt="IPwatch Logo" width="96">
+# IPwatch · IP 哨兵（飞牛 fnOS 版）
+
+**轻量级主机在线监测 · 掉线自动邮件/微信告警 · 数据全部保存在 NAS**
+
+</div>
+
+---
+
+## 📥 下载 FPK 安装包
+
+| 项目 | 内容 |
+|------|------|
+| 当前版本 | v0.8.8 |
+| 安装包 | `ipwatch_v0.8.8.fpk` |
+| 文件大小 | 684.7 KB（701,111 字节） |
+| SHA-256 | `5dcaee5a92044cc4a7e297a35acf08a98361fb7446df35998bf8de1df75ff5d2` |
+| 适用平台 | 飞牛 fnOS（all 架构），需系统 Node.js v22 运行时应用（`nodejs_v22`） |
+| 服务端口 | 5210 |
+
+直接下载地址（推荐，点击即可下载）：
+
+👉 https://raw.githubusercontent.com/12031050/IPwatch/main/dist/ipwatch_v0.8.8.fpk
+
+其他入口：
+
+- [仓库内安装包文件](dist/)（在 GitHub 文件列表中打开后点 `Download raw file`）
+- [Tags / Releases](../../releases)：已推送 `v0.8.8` 标签，后续版本将在此发布
+- 历史版本与变更说明见 [manifest](manifest) 中的 `changelog` 字段
+- 也可从 [GitHub Pages 下载页](https://12031050.github.io/IPwatch/) 获取
 
 ---
 
